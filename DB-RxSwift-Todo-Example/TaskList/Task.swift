@@ -7,15 +7,20 @@
 
 import Foundation
 
-internal struct Task: Equatable {
-    internal enum Status {
-        case open
-        case compleated
-    }
-    
+internal struct Task: Equatable {    
     internal let id: UUID = UUID()
     internal let title: String
-    internal var status: Status
+    internal var isCompleated: Bool
+    
+    internal init(title: String) {
+        self.title = title
+        self.isCompleated = false
+    }
+    
+    internal init(title: String, isCompleated: Bool) {
+        self.title = title
+        self.isCompleated = isCompleated
+    }
     
     // MARK: - Equatable
 

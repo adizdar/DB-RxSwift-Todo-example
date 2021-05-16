@@ -13,8 +13,7 @@ import UIKit
 internal class TaskListViewController: UIViewController {
     @IBOutlet private weak var taskTitleTextField: UITextField!
     @IBOutlet private weak var createTaskButton: UIButton!
-    @IBOutlet private weak var openTasksTableView: UITableView!
-    @IBOutlet private weak var completedTasksTableView: UITableView!
+    @IBOutlet private weak var tableView: UITableView!
     @IBOutlet private weak var tasksSummaryLabel: UILabel!
     
     private let viewModel: TaskListViewModel
@@ -46,14 +45,14 @@ internal class TaskListViewController: UIViewController {
     }
     
     private func setup() {
-        self.openTasksTableView.register(UITableViewCell.self, forCellReuseIdentifier: UITableViewCell.defaultReuseIdentifier)
-        self.completedTasksTableView.register(UITableViewCell.self, forCellReuseIdentifier: UITableViewCell.defaultReuseIdentifier)
-        
+        self.tableView.register(UITableViewCell.self, forCellReuseIdentifier: UITableViewCell.defaultReuseIdentifier)
+        self.tableView.rowHeight = UITableView.automaticDimension
+        self.tableView.estimatedRowHeight = 60
     }
     
     private func bindToViewModel() {
-        let openTasksDataSource = RxTableViewSectionedReloadDataSource<TaskListViewModel.SectionModel>(
-            configureCell: { _, tableView, indexPath, task  in
+        let dataSource = RxTableViewSectionedReloadDataSource<TaskListViewModel.SectionModel>(
+            configureCell: { _, tableView, indexPath, task in
                 let cell = tableView.dequeueReusableCell(type: UITableViewCell.self, indexPath: indexPath)
                 cell.accessibilityIdentifier = "taskTableViewCell_\(indexPath.section)_\(indexPath.row)"
                 cell.textLabel?.text = task.title
@@ -62,37 +61,19 @@ internal class TaskListViewController: UIViewController {
             }
         )
         
-        let compleatedTasksDataSource = RxTableViewSectionedReloadDataSource<TaskListViewModel.SectionModel>(
-            configureCell: { _, tableView, indexPath, task  in
-                let cell = tableView.dequeueReusableCell(type: UITableViewCell.self, indexPath: indexPath)
-                cell.accessibilityIdentifier = "taskTableViewCell_\(indexPath.section)_\(indexPath.row)"
-                cell.textLabel?.text = task.title
+        dataSource.titleForHeaderInSection = { dataSource, index in
+            dataSource.sectionModels[index].title
+        }
 
-                return cell
-            }
-        )
-        
-        self.viewModel.openSections
-            .drive(self.openTasksTableView.rx.items(dataSource: openTasksDataSource))
+        self.viewModel.taskSections
+            .drive(self.tableView.rx.items(dataSource: dataSource))
             .disposed(by: self.disposeBag)
         
-        self.viewModel.compleatedSections
-            .drive(self.completedTasksTableView.rx.items(dataSource: compleatedTasksDataSource))
-            .disposed(by: self.disposeBag)
-        
-        self.openTasksTableView.rx.itemSelected
+        self.tableView.rx.itemSelected
             .bind { [unowned self] indexPath in
-                let selectedTask = openTasksDataSource[indexPath]
-                self.openTasksTableView.deselectRow(at: indexPath, animated: true)
-                self.viewModel.changeTaskStatusViaId(selectedTask.id, status: .compleated)
-            }
-            .disposed(by: self.disposeBag)
-        
-        self.completedTasksTableView.rx.itemSelected
-            .bind { [unowned self] indexPath in
-                let selectedTask = compleatedTasksDataSource[indexPath]
-                self.openTasksTableView.deselectRow(at: indexPath, animated: true)
-                self.viewModel.changeTaskStatusViaId(selectedTask.id, status: .open)
+                let selectedTask = dataSource[indexPath]
+                self.tableView.deselectRow(at: indexPath, animated: true)
+                self.viewModel.changeTaskStatusViaId(selectedTask.id)
             }
             .disposed(by: self.disposeBag)
         

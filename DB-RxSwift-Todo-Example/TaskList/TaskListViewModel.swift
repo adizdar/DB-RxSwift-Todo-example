@@ -12,7 +12,10 @@ import RxSwift
 
 internal class TaskListViewModel {
     internal struct SectionModel: SectionModelType {
-        internal init(items: [Task]) {
+        internal let title: String
+        
+        internal init(title: String, items: [Task]) {
+            self.title = title
             self.items = items
         }
 
@@ -26,48 +29,27 @@ internal class TaskListViewModel {
         }
     }
     
-    internal let openSections: Driver<[SectionModel]>
-    internal let compleatedSections: Driver<[SectionModel]>
+    internal let taskSections: Driver<[SectionModel]>
     internal let tasksSummaryMessage: Driver<String>
-    private let openTasks: BehaviorRelay<[Task]> = .init(value: [])
-    private let compleatedTasks: BehaviorRelay<[Task]> = .init(value: [])
-    private let disposeBag: DisposeBag = .init()
 
     private let tasks: BehaviorRelay<[Task]> = .init(value: [
-        Task(title: "New Task", status: .open),
-        Task(title: "HoM task", status: .compleated)
+        Task(title: "New Task"),
+        Task(title: "HoM task", isCompleated: true)
     ])
     
     internal init() {
-        self.tasks
-            .map { tasks in tasks.filter { $0.status == .open } }
-            .bind(to: self.openTasks)
-            .disposed(by: self.disposeBag)
-        
-        self.openSections = self.openTasks
-            .map { [SectionModel(items: $0)] }
-            .asDriverElevatingErrorsToFatal()
-        
-        self.tasks
-            .map { tasks in tasks.filter { $0.status == .compleated } }
-            .bind(to: self.compleatedTasks)
-            .disposed(by: self.disposeBag)
-        
-//        Observable
-//            .combineLatest(self.tasks, self.openTasks)
-//            .map { tasks, openTasks in
-//                tasks.filter { $0.status == .compleated } + openTasks.filter { $0.status == .compleated }
-//            }
-//            .bind(to: self.compleatedTasks)
-//            .disposed(by: self.disposeBag)
-
-        self.compleatedSections = self.compleatedTasks
-            .map { [SectionModel(items: $0)] }
+        self.taskSections = self.tasks
+            .map { tasks in
+                [
+                    SectionModel(title: "Open Tasks", items: tasks.filter { !$0.isCompleated }),
+                    SectionModel(title: "Compleated Tasks", items: tasks.filter { $0.isCompleated }),
+                ]
+            }
             .asDriverElevatingErrorsToFatal()
         
         let tasksCount = self.tasks.map { $0.count }.asDriverElevatingErrorsToFatal()
-        let openTasksCount = self.openTasks.map { $0.count }.asDriverElevatingErrorsToFatal()
-        let compleatedTasksCount = self.compleatedTasks.map { $0.count }.asDriverElevatingErrorsToFatal()
+        let openTasksCount = self.tasks.map { $0.filter { !$0.isCompleated }.count }.asDriverElevatingErrorsToFatal()
+        let compleatedTasksCount = self.tasks.map { $0.filter { $0.isCompleated }.count }.asDriverElevatingErrorsToFatal()
         
         self.tasksSummaryMessage = Driver
             .combineLatest(tasksCount, openTasksCount, compleatedTasksCount)
@@ -81,16 +63,16 @@ internal class TaskListViewModel {
             fatalError("Task title can't be empty.")
         }
         
-        self.tasks.accept(adding: Task(title: title, status: .open))
+        self.tasks.accept(adding: Task(title: title))
     }
     
-    internal func changeTaskStatusViaId(_ taskId: UUID, status: Task.Status) {
+    internal func changeTaskStatusViaId(_ taskId: UUID) {
         var tasks = self.tasks.value
         guard let row = tasks.firstIndex(where: { $0.id == taskId }) else {
             fatalError("Task item not found.")
         }
         
-        tasks[row].status = status
+        tasks[row].isCompleated.toggle()
         
         self.tasks.accept(tasks)
     }
