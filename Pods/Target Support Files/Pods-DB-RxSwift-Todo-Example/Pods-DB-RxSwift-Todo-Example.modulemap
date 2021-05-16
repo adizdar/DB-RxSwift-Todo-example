@@ -1,0 +1,6 @@
+framework module Pods_DB_RxSwift_Todo_Example {
+  umbrella header "Pods-DB-RxSwift-Todo-Example-umbrella.h"
+
+  export *
+  module * { export * }
+}
